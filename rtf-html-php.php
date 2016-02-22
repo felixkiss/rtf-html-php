@@ -11,17 +11,17 @@
    * @license    GNU
    * @version    1
    * @link       http://www.independent-software.com
-   * 
+   *
    * Sample of use:
-   * 
+   *
    * $reader = new RtfReader();
    * $rtf = file_get_contents("test.rtf"); // or use a string
    * $reader->Parse($rtf);
    * //$reader->root->dump(); // to see what the reader read
    * $formatter = new RtfHtml();
-   * echo $formatter->Format($reader->root);   
+   * echo $formatter->Format($reader->root);
    */
- 
+
   class RtfElement
   {
     protected function Indent($level)
@@ -29,18 +29,18 @@
       for($i = 0; $i < $level * 2; $i++) echo "&nbsp;";
     }
   }
- 
+
   class RtfGroup extends RtfElement
   {
     public $parent;
     public $children;
- 
+
     public function __construct()
     {
       $this->parent = null;
       $this->children = array();
     }
- 
+
     public function GetType()
     {
       // No children?
@@ -49,8 +49,8 @@
       $child = $this->children[0];
       if(get_class($child) != "RtfControlWord") return null;
       return $child->word;
-    }    
- 
+    }
+
     public function IsDestination()
     {
       // No children?
@@ -60,14 +60,14 @@
       if(get_class($child) != "RtfControlSymbol") return null;
       return $child->symbol == '*';
     }
- 
+
     public function dump($level = 0)
     {
       echo "<div>";
       $this->Indent($level);
       echo "{";
       echo "</div>";
- 
+
       foreach($this->children as $child)
       {
         if(get_class($child) == "RtfGroup")
@@ -82,19 +82,19 @@
         }
         $child->dump($level + 2);
       }
- 
+
       echo "<div>";
       $this->Indent($level);
       echo "}";
       echo "</div>";
     }
   }
- 
+
   class RtfControlWord extends RtfElement
   {
     public $word;
     public $parameter;
- 
+
     public function dump($level)
     {
       echo "<div style='color:green'>";
@@ -103,43 +103,43 @@
       echo "</div>";
     }
   }
- 
+
   class RtfControlSymbol extends RtfElement
   {
     public $symbol;
     public $parameter = 0;
- 
+
     public function dump($level)
     {
       echo "<div style='color:blue'>";
       $this->Indent($level);
       echo "SYMBOL {$this->symbol} ({$this->parameter})";
       echo "</div>";
-    }    
+    }
   }
- 
+
   class RtfText extends RtfElement
   {
     public $text;
- 
+
     public function dump($level)
     {
       echo "<div style='color:red'>";
       $this->Indent($level);
       echo "TEXT {$this->text}";
       echo "</div>";
-    }    
+    }
   }
- 
+
   class RtfReader
   {
     public $root = null;
- 
+
     protected function GetChar()
     {
       $this->char = $this->rtf[$this->pos++];
     }
- 
+
     protected function ParseStartGroup()
     {
       // Store state of document on stack.
@@ -156,26 +156,26 @@
         $this->group = $group;
       }
     }
- 
+
     protected function is_letter()
     {
       if(ord($this->char) >= 65 && ord($this->char) <= 90) return TRUE;
       if(ord($this->char) >= 97 && ord($this->char) <= 122) return TRUE;
       return FALSE;
     }
- 
+
     protected function is_digit()
     {
       if(ord($this->char) >= 48 && ord($this->char) <= 57) return TRUE;
       return FALSE;
     }
- 
+
     protected function ParseEndGroup()
     {
       // Retrieve state of document from stack.
       $this->group = $this->group->parent;
     }
- 
+
     protected function ParseControlWord()
     {
       $this->GetChar();
@@ -186,12 +186,12 @@
         $word .= $this->char;
         $this->GetChar();
       }
- 
+
       // Read parameter (if any) consisting of digits.
       // Paramater may be negative.
       $parameter = null;
       $negative = false;
-      if($this->char == '-') 
+      if($this->char == '-')
       {
         $this->GetChar();
         $negative = true;
@@ -204,10 +204,10 @@
       }
       if($parameter === null) $parameter = 1;
       if($negative) $parameter = -$parameter;
- 
-      // If this is \u, then the parameter will be followed by 
+
+      // If this is \u, then the parameter will be followed by
       // a character.
-      if($word == "u") 
+      if($word == "u")
       {
       }
       // If the current character is a space, then
@@ -216,38 +216,38 @@
       // item in the text, so put the character back.
       else
       {
-        if($this->char != ' ') $this->pos--; 
+        if($this->char != ' ') $this->pos--;
       }
- 
+
       $rtfword = new RtfControlWord();
       $rtfword->word = $word;
       $rtfword->parameter = $parameter;
       array_push($this->group->children, $rtfword);
     }
- 
+
     protected function ParseControlSymbol()
     {
       // Read symbol (one character only).
       $this->GetChar();
       $symbol = $this->char;
- 
-      // Symbols ordinarily have no parameter. However, 
+
+      // Symbols ordinarily have no parameter. However,
       // if this is \', then it is followed by a 2-digit hex-code:
       $parameter = 0;
       if($symbol == '\'')
       {
-        $this->GetChar(); 
+        $this->GetChar();
         $parameter = $this->char;
-        $this->GetChar(); 
+        $this->GetChar();
         $parameter = hexdec($parameter . $this->char);
       }
- 
+
       $rtfsymbol = new RtfControlSymbol();
       $rtfsymbol->symbol = $symbol;
       $rtfsymbol->parameter = $parameter;
       array_push($this->group->children, $rtfsymbol);
     }
- 
+
     protected function ParseControl()
     {
       // Beginning of an RTF control word or control symbol.
@@ -255,23 +255,23 @@
       // a letter (control world) or another symbol (control symbol):
       $this->GetChar();
       $this->pos--;
-      if($this->is_letter()) 
+      if($this->is_letter())
         $this->ParseControlWord();
       else
         $this->ParseControlSymbol();
     }
- 
+
     protected function ParseText()
     {
       // Parse plain text up to backslash or brace,
       // unless escaped.
       $text = "";
- 
+
       do
       {
         $terminate = false;
         $escape = false;
- 
+
         // Is this an escape?
         if($this->char == '\\')
         {
@@ -295,7 +295,7 @@
           $this->pos--;
           $terminate = true;
         }
- 
+
         if(!$terminate && !$escape)
         {
           $text .= $this->char;
@@ -306,12 +306,12 @@
         }
       }
       while(!$terminate && $this->pos < $this->len);
- 
+
       $rtftext = new RtfText();
       $rtftext->text = $text;
       array_push($this->group->children, $rtftext);
     }
- 
+
     public function Parse($rtf)
     {
       $this->rtf = $rtf;
@@ -319,15 +319,15 @@
       $this->len = strlen($this->rtf);
       $this->group = null;
       $this->root = null;
- 
+
       while($this->pos < $this->len)
       {
         // Read next character:
         $this->GetChar();
- 
+
         // Ignore \r and \n
         if($this->char == "\n" || $this->char == "\r") continue;
- 
+
         // What type of character is this?
         switch($this->char)
         {
@@ -347,14 +347,14 @@
       }
     }
   }
- 
+
   class RtfState
   {
     public function __construct()
     {
       $this->Reset();
     }
- 
+
     public function Reset()
     {
       $this->bold = false;
@@ -366,7 +366,7 @@
       $this->fontsize = 0;
     }
   }
- 
+
   class RtfHtml
   {
     public function Format($root)
@@ -380,7 +380,7 @@
       $this->FormatGroup($root);
       return $this->output;
     }
- 
+
     protected function FormatGroup($group)
     {
       // Can we ignore this group?
@@ -391,11 +391,11 @@
       // Skip any pictures:
       if (substr($group->GetType(), 0, 4) == "pict") return;
       if ($group->IsDestination()) return;
- 
+
       // Push a new state onto the stack:
       $this->state = clone $this->state;
       array_push($this->states, $this->state);
- 
+
       foreach($group->children as $child)
       {
         if(get_class($child) == "RtfGroup") $this->FormatGroup($child);
@@ -403,12 +403,12 @@
         if(get_class($child) == "RtfControlSymbol") $this->FormatControlSymbol($child);
         if(get_class($child) == "RtfText") $this->FormatText($child);
       }
- 
+
       // Pop state from stack.
       array_pop($this->states);
       $this->state = $this->states[sizeof($this->states)-1];
     }
- 
+
     protected function FormatControlWord($word)
     {
       if($word->word == "plain") $this->state->Reset();
@@ -419,9 +419,9 @@
       if($word->word == "strike") $this->state->strike = $word->parameter;
       if($word->word == "v") $this->state->hidden = $word->parameter;
       if($word->word == "fs") $this->state->fontsize = ceil(($word->parameter / 24) * 16);
- 
-      if($word->word == "par") $this->output .= "<p>";
- 
+
+      if($word->word == "par") $this->output .= "<br>";
+
       // Characters:
       if($word->word == "lquote") $this->output .= "&lsquo;";
       if($word->word == "rquote") $this->output .= "&rsquo;";
@@ -432,7 +432,7 @@
       if($word->word == "bullet") $this->output .= "&bull;";
       if($word->word == "u") $this->output .= "&loz;";
     }
- 
+
     protected function BeginState()
     {
       $span = "";
@@ -445,12 +445,12 @@
       if($this->state->fontsize != 0) $span .= "font-size: {$this->state->fontsize}px;";
       $this->output .= "<span style='{$span}'>";
     }
- 
+
     protected function EndState()
     {
       $this->output .= "</span>";
     }
- 
+
     protected function FormatControlSymbol($symbol)
     {
       if($symbol->symbol == '\'')
@@ -460,7 +460,7 @@
         $this->EndState();
       }
     }
- 
+
     protected function FormatText($text)
     {
       $this->BeginState();
